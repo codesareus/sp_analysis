@@ -164,6 +164,48 @@ r_squared_poly = r2_score(y, y_pred_poly)
 residuals = y - y_pred_poly
 std_dev = np.std(residuals)  # Standard deviation of residuals
 
+# ===== INSERT THE NEW BLOCK OF CODE HERE =====
+
+# Ensure latest_closing_price is defined
+latest_closing_price = data[-1]  # Latest closing price
+
+# Get the last polynomial modeled value
+last_poly_value = y_pred_poly[-1]
+
+# Calculate the differences for each standard deviation level
+std_dev_levels = [1.0, 1.5, 2.0]
+differences = []
+
+for level in std_dev_levels:
+    lower_bound = last_poly_value - level * std_dev
+    upper_bound = last_poly_value + level * std_dev
+    differences.append(abs(latest_closing_price - lower_bound))
+    differences.append(abs(latest_closing_price - upper_bound))
+
+# Find the smallest difference and corresponding standard deviation
+min_diff = min(differences)
+min_index = differences.index(min_diff)
+std_dev_index = min_index // 2  # Determine which standard deviation level
+std_dev_level = std_dev_levels[std_dev_index]
+
+# Determine if the smallest difference is from the lower or upper bound
+if min_index % 2 == 0:
+    bound_type = "lower"
+else:
+    bound_type = "upper"
+
+# Display the message indicating how many standard deviations SPY is approaching
+st.markdown(
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {std_dev_level} standard deviations ({bound_type} bound)</p>',
+    unsafe_allow_html=True
+)
+
+# ===== END OF NEW BLOCK =====
+
+# Plot the data and regression lines
+st.subheader("Plot")
+fig, ax = plt.subplots(figsize=(12, 8))  # Wider plot to accommodate predictions
+
 # Convert the selected prediction period to an integer
 prediction_days = int(prediction_period.split()[0])  # Extract the number of days
 
@@ -239,6 +281,13 @@ st.markdown(
     f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {closest_ma} (Value: {closest_ma_value:.2f})</p>',
     unsafe_allow_html=True
 )
+
+# ===== INSERT THE NEW BLOCK OF CODE HERE =====
+
+
+
+
+# ===== END OF NEW BLOCK =====
 
 # Plot the data and regression lines
 st.subheader("Plot")
