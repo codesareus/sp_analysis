@@ -93,13 +93,7 @@ st.sidebar.markdown(
 data = closing_prices.tolist()
 data0 = closing_prices0.tolist()
 
-# Save the SPY data as a CSV file
-spy_data_df = pd.DataFrame({
-        "Date": hist.index.strftime('%Y-%m-%d'),  # Format dates as strings
-        "Closing Price": closing_prices
-})
-spy_data_df.to_csv("spy.csv", index=False)
-st.sidebar.success("SPY data saved as spy.csv")
+
 
 # Fetch the latest SPY closing price
 latest_spy_price = get_latest_spy_price()
