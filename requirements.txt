@@ -5,3 +5,4 @@ datetime
 scikit-learn
 streamlit
 pandas
+yfinance
