@@ -1,6 +1,3 @@
-####spy.py final
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -31,12 +28,11 @@ latest_spy_price = None
 price_difference = None
 
 # Fetch SPY data based on the selected time period
-
 st.sidebar.subheader("Historical Data Settings")
 time_period = st.sidebar.selectbox(
-        "Select time period:",
-        options=["3mo", "6mo", "1y", "2y", "5y"],  # Available time periods
-        index=0  # Default: 3 months
+    "Select time period:",
+    options=["3mo", "6mo", "1y", "2y", "5y"],  # Available time periods
+    index=1  # Default: 6 months
 )
 
 # Download historical data for SPY
@@ -46,11 +42,11 @@ hist0 = spy.history(period="5y")
 
 # Ensure the index is a DatetimeIndex
 if not isinstance(hist.index, pd.DatetimeIndex):
-        hist.index = pd.to_datetime(hist.index)
+    hist.index = pd.to_datetime(hist.index)
 
 # Ensure the index is a DatetimeIndex
 if not isinstance(hist0.index, pd.DatetimeIndex):
-        hist0.index = pd.to_datetime(hist0.index)
+    hist0.index = pd.to_datetime(hist0.index)
 
 # Extract closing prices and round to two decimal places
 closing_prices = hist["Close"].round(2)
@@ -58,8 +54,8 @@ closing_prices0 = hist0["Close"].round(2)
 
 # Check if the dataset is empty
 if len(closing_prices) == 0:
-        st.error("No data found for the selected time period. Please try again.")
-        st.stop()  # Stop execution if the dataset is empty
+    st.error("No data found for the selected time period. Please try again.")
+    st.stop()  # Stop execution if the dataset is empty
 
 # Convert the closing prices to a comma-separated string
 closing_prices_str = ",".join(map(str, closing_prices))
@@ -67,44 +63,42 @@ closing_prices0_str = ",".join(map(str, closing_prices0))
 
 # Display the closing prices in a fixed-height scrollable container
 st.sidebar.write(f"**SPY Closing Prices (Last {time_period}):**")
-    
+
 # Custom CSS to create a fixed-height scrollable container
 st.markdown(
-        """
-        <style>
-        .scrollable-container {
-            height: 200px;  /* Fixed height */
-            overflow-y: auto;  /* Enable vertical scrolling */
-            border: 1px solid #ccc;  /* Optional: Add a border */
-            padding: 10px;  /* Optional: Add padding */
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
+    """
+    <style>
+    .scrollable-container {
+        height: 200px;  /* Fixed height */
+        overflow-y: auto;  /* Enable vertical scrolling */
+        border: 1px solid #ccc;  /* Optional: Add a border */
+        padding: 10px;  /* Optional: Add padding */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 # Use the custom CSS class for the container
 st.sidebar.markdown(
-        f'<div class="scrollable-container">{closing_prices_str}</div>',
-        unsafe_allow_html=True,
+    f'<div class="scrollable-container">{closing_prices_str}</div>',
+    unsafe_allow_html=True,
 )
 
 # Use the closing prices as the dataset
 data = closing_prices.tolist()
 data0 = closing_prices0.tolist()
 
-
-
 # Fetch the latest SPY closing price
 latest_spy_price = get_latest_spy_price()
 
 # Calculate the difference between the last two closing prices
 if len(data) >= 2:
-        last_price = data[-1]
-        second_last_price = data[-2]
-        price_difference = last_price - second_last_price
+    last_price = data[-1]
+    second_last_price = data[-2]
+    price_difference = last_price - second_last_price
 else:
-        price_difference = None
+    price_difference = None
 
 # Divider
 st.sidebar.divider()
@@ -154,25 +148,35 @@ poly_model.fit(X, y)
 y_pred_poly = poly_model.predict(X)
 r_squared_poly = r2_score(y, y_pred_poly)
 
-# Calculate residuals (errors) for the polynomial model
-residuals = y - y_pred_poly
-std_dev = np.std(residuals)  # Standard deviation of residuals
+# Determine which model has the higher R-squared
+if r_squared_linear > r_squared_poly:
+    better_model = linear_model
+    better_y_pred = y_pred_linear
+    better_r_squared = r_squared_linear
+    model_type = "Linear"
+else:
+    better_model = poly_model
+    better_y_pred = y_pred_poly
+    better_r_squared = r_squared_poly
+    model_type = "Polynomial"
 
-# ===== INSERT THE NEW BLOCK OF CODE HERE =====
+# Calculate residuals (errors) for the better model
+residuals = y - better_y_pred
+std_dev = np.std(residuals)  # Standard deviation of residuals
 
 # Ensure latest_closing_price is defined
 latest_closing_price = data[-1]  # Latest closing price
 
-# Get the last polynomial modeled value
-last_poly_value = y_pred_poly[-1]
+# Get the last modeled value from the better model
+last_model_value = better_y_pred[-1]
 
 # Calculate the differences for each standard deviation level
 std_dev_levels = [1.0, 1.5, 2.0]
 differences = []
 
 for level in std_dev_levels:
-    lower_bound = last_poly_value - level * std_dev
-    upper_bound = last_poly_value + level * std_dev
+    lower_bound = last_model_value - level * std_dev
+    upper_bound = last_model_value + level * std_dev
     differences.append(abs(latest_closing_price - lower_bound))
     differences.append(abs(latest_closing_price - upper_bound))
 
@@ -190,11 +194,9 @@ else:
 
 # Display the message indicating how many standard deviations SPY is approaching
 st.markdown(
-    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {std_dev_level} standard deviations ({bound_type} bound)</p>',
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {std_dev_level} standard deviations ({bound_type} bound) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
     unsafe_allow_html=True
 )
-
-# ===== END OF NEW BLOCK =====
 
 # Plot the data and regression lines
 st.subheader("Plot")
@@ -205,8 +207,7 @@ prediction_days = int(prediction_period.split()[0])  # Extract the number of day
 
 # Predict future days
 future_X = np.arange(len(moving_avg), len(moving_avg) + prediction_days).reshape(-1, 1)  # Future time steps
-future_y_linear = linear_model.predict(future_X)  # Linear regression predictions
-future_y_poly = poly_model.predict(future_X)  # Polynomial regression predictions
+future_y_better = better_model.predict(future_X)  # Better model predictions
 
 # Display current SPY price and price difference above the plot
 st.write("### SPY Price Information")
@@ -252,7 +253,6 @@ else:
 # Find the smallest difference
 smallest_diff = min(diff_moving_avg, diff_ma9, diff_ma20, diff_ma50, diff_ma100)
 
-#########################
 # Determine which moving average is closest
 if smallest_diff == diff_moving_avg:
     closest_ma = "5-day Moving Average"
@@ -275,17 +275,6 @@ st.markdown(
     f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {closest_ma} (Value: {closest_ma_value:.2f})</p>',
     unsafe_allow_html=True
 )
-
-# ===== INSERT THE NEW BLOCK OF CODE HERE =====
-
-
-
-
-# ===== END OF NEW BLOCK =====
-
-# Plot the data and regression lines
-st.subheader("Plot")
-fig, ax = plt.subplots(figsize=(12, 8))  # Wider plot to accommodate predictions
 
 # Plot SPY closing prices
 ax.plot(np.arange(len(data) - 4), data[4:], color='black', label='SPY Closing Prices', alpha=0.5)
@@ -310,7 +299,7 @@ ax.scatter(X, y, color='blue', label='5-Day Moving Averages')
 ax.plot(X, y_pred_linear, color='red', label=f'Linear Regression (R² = {r_squared_linear:.3f})')
 ax.plot(X, y_pred_poly, color='green', label=f'Polynomial Regression (R² = {r_squared_poly:.3f})')
 
-# Add shaded regions for multiple standard deviations
+# Add shaded regions for multiple standard deviations only for the better model
 std_dev_levels = [1.0, 1.5, 2.0]  # Removed 1.25
 colors = ['gray', 'orange', 'red']  # Removed 'blue'
 alphas = [0.2, 0.1, 0.05]  # Removed 0.15
@@ -318,22 +307,20 @@ alphas = [0.2, 0.1, 0.05]  # Removed 0.15
 for level, color, alpha in zip(std_dev_levels, colors, alphas):
     ax.fill_between(
         X.flatten(),  # X values
-        y_pred_poly - level * std_dev,  # Lower bound
-        y_pred_poly + level * std_dev,  # Upper bound
+        better_y_pred - level * std_dev,  # Lower bound
+        better_y_pred + level * std_dev,  # Upper bound
         color=color, alpha=alpha, label=f'±{level} Standard Deviations'
     )
 
 # Plot future predictions
-ax.scatter(future_X, future_y_linear, color='orange', label='Linear Regression Predictions')
-ax.scatter(future_X, future_y_poly, color='purple', label='Polynomial Regression Predictions')
+ax.scatter(future_X, future_y_better, color='purple', label=f'{model_type} Regression Predictions')
 
 # Annotate future predictions with their values
-for i, (x, y_lin, y_poly) in enumerate(zip(future_X, future_y_linear, future_y_poly)):
-    ax.text(x, y_lin, f'{y_lin:.2f}', color='orange', fontsize=8, ha='right', va='bottom')
-    ax.text(x, y_poly, f'{y_poly:.2f}', color='purple', fontsize=8, ha='left', va='top')
+for i, (x, y_pred) in enumerate(zip(future_X, future_y_better)):
+    ax.text(x, y_pred, f'{y_pred:.2f}', color='purple', fontsize=8, ha='left', va='top')
 
 # Add labels, title, and legend
-ax.set_title(f"5-Day Moving Averages: Linear vs Polynomial Regression with {prediction_period} Predictions")
+ax.set_title(f"5-Day Moving Averages: {model_type} Regression with {prediction_period} Predictions (R² = {better_r_squared:.3f})")
 ax.set_xlabel("Time Step")
 ax.set_ylabel("Value")
 ax.legend()
@@ -344,5 +331,4 @@ st.pyplot(fig)
 
 # Display predictions below the plot
 st.subheader(f"Predictions for the Next {prediction_period}")
-st.write("**Linear Regression Predictions:**", future_y_linear)
-st.write("**Polynomial Regression Predictions:**", future_y_poly)
+st.write(f"**{model_type} Regression Predictions:**", future_y_better)
