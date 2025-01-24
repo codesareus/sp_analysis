@@ -57,34 +57,6 @@ if len(closing_prices) == 0:
     st.error("No data found for the selected time period. Please try again.")
     st.stop()  # Stop execution if the dataset is empty
 
-# Convert the closing prices to a comma-separated string
-closing_prices_str = ",".join(map(str, closing_prices))
-closing_prices0_str = ",".join(map(str, closing_prices0))
-
-# Display the closing prices in a fixed-height scrollable container
-st.sidebar.write(f"**SPY Closing Prices (Last {time_period}):**")
-
-# Custom CSS to create a fixed-height scrollable container
-st.markdown(
-    """
-    <style>
-    .scrollable-container {
-        height: 200px;  /* Fixed height */
-        overflow-y: auto;  /* Enable vertical scrolling */
-        border: 1px solid #ccc;  /* Optional: Add a border */
-        padding: 10px;  /* Optional: Add padding */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# Use the custom CSS class for the container
-st.sidebar.markdown(
-    f'<div class="scrollable-container">{closing_prices_str}</div>',
-    unsafe_allow_html=True,
-)
-
 # Use the closing prices as the dataset
 data = closing_prices.tolist()
 data0 = closing_prices0.tolist()
@@ -189,14 +161,21 @@ std_dev_level = std_dev_levels[std_dev_index]
 # Determine if the smallest difference is from the lower or upper bound
 if min_index % 2 == 0:
     bound_type = "lower"
+    bound_price = last_model_value - std_dev_level * std_dev
 else:
     bound_type = "upper"
+    bound_price = last_model_value + std_dev_level * std_dev
 
 # Display the message indicating how many standard deviations SPY is approaching
+#st.markdown(
+    #f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY ({latest_spy_price:.2f}) is approaching {std_dev_level} standard deviations ({bound_type} bound, SPY price at {bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
+    #unsafe_allow_html=True
+#)
 st.markdown(
-    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {std_dev_level} standard deviations ({bound_type} bound) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY ({latest_spy_price:.2f}) approaching {std_dev_level} Std_Dev ({bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
     unsafe_allow_html=True
 )
+
 
 # Plot the data and regression lines
 st.subheader("Plot")
@@ -211,15 +190,30 @@ future_y_better = better_model.predict(future_X)  # Better model predictions
 
 # Display current SPY price and price difference above the plot
 st.write("### SPY Price Information")
-if latest_spy_price is not None:
-    st.write(f"**Current SPY Closing Price:** ${latest_spy_price:.2f}")
+if latest_spy_price is not None and price_difference is not None:
+    # Determine if the price increased or decreased
+    if price_difference > 0:
+        color = "green"
+        change_symbol = "+"
+    elif price_difference < 0:
+        color = "red"
+        change_symbol = "-"
+    else:
+        color = "black"  # No change
+        change_symbol = ""
+    
+    # Get yesterday's closing price
+    yesterday_close = latest_spy_price - price_difference
+    
+    # Display the combined message with color applied to the entire message
+    st.markdown(
+        f'<span style="color: {color};">**SPY Current Price:** ${latest_spy_price:.2f}, {change_symbol}${abs(price_difference):.2f} from last close (${yesterday_close:.2f})</span>',
+        unsafe_allow_html=True
+    )
+elif latest_spy_price is not None:
+    st.write(f"**SPY Current Price:** ${latest_spy_price:.2f} (Price difference data not available)")
 else:
-    st.write("**Current SPY Closing Price:** Not available")
-
-if price_difference is not None:
-    st.write(f"**Difference between last two SPY closing prices:** ${price_difference:.2f}")
-else:
-    st.write("**Difference between last two SPY closing prices:** Not enough data")
+    st.write("**SPY Current Price:** Not available")
 
 # Add the comparison logic and display the trend message
 latest_closing_price = data[-1]  # Latest closing price
