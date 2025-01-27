@@ -17,34 +17,76 @@ st.sidebar.header("Input Data")
 # Divider
 st.sidebar.divider()
 
-# Fetch the latest SPY closing price
-def get_latest_spy_price():
-    spy = yf.Ticker("SPY")
-    hist = spy.history(period="1d")  # Fetch the latest day's data
-    return hist["Close"].iloc[-1]
+# Add a button to toggle between SPY and QQQ
+if 'ticker' not in st.session_state:
+    st.session_state.ticker = "SPY"
+
+if st.sidebar.button(f"Switch to {'QQQ' if st.session_state.ticker == 'SPY' else 'SPY'}"):
+    st.session_state.ticker = "QQQ" if st.session_state.ticker == "SPY" else "SPY"
+
+######################
+# Initialize session state for custom ticker if it doesn't exist
+if "custom_ticker" not in st.session_state:
+    st.session_state.custom_ticker = ""
+
+# Define a callback function to clear the custom ticker input
+def clear_custom_ticker():
+    st.session_state.custom_ticker = ""
+
+# Add a text input for custom ticker symbol
+custom_ticker = st.sidebar.text_input(
+    "Enter a custom ticker symbol (e.g., AAPL, TSLA):",
+    value=st.session_state.custom_ticker,
+    key="custom_ticker_input"
+)
+
+# Use the custom ticker if provided
+if custom_ticker.strip():  # If the user entered something
+    selected_ticker = custom_ticker.strip().upper()
+    # Clear the custom ticker after using it
+    st.session_state.custom_ticker = ""  # Clear the input
+else:
+    selected_ticker = st.session_state.ticker  # Use the toggled ticker
+
+# Display the selected ticker
+st.write(f"Selected Ticker: {selected_ticker}")
+
+#################
+# Fetch the latest closing price for the selected ticker
+def get_latest_price(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1d")  # Fetch the latest day's data
+        return hist["Close"].iloc[-1]
+    except Exception as e:
+        st.error(f"Error fetching data for {ticker}: {e}")
+        return None
 
 # Initialize variables
-latest_spy_price = None
+latest_price = None
 price_difference = None
 
-# Fetch SPY data based on the selected time period
+# Fetch data based on the selected time period
 st.sidebar.subheader("Historical Data Settings")
 time_period = st.sidebar.selectbox(
     "Select time period:",
-    options=["3mo", "6mo", "1y", "2y", "5y"],  # Available time periods
+    options=["3mo", "6mo", "1y", "2y"],  # Removed "5y"
     index=1  # Default: 6 months
 )
 
-# Download historical data for SPY
-spy = yf.Ticker("SPY")
-hist = spy.history(period=time_period)
-hist0 = spy.history(period="5y")
+# Download historical data for the selected ticker
+try:
+    stock = yf.Ticker(selected_ticker)
+    hist = stock.history(period=time_period)
+    hist0 = stock.history(period="5y")
+except Exception as e:
+    st.error(f"Error fetching historical data for {selected_ticker}: {e}")
+    st.stop()
 
 # Ensure the index is a DatetimeIndex
 if not isinstance(hist.index, pd.DatetimeIndex):
     hist.index = pd.to_datetime(hist.index)
 
-# Ensure the index is a DatetimeIndex
 if not isinstance(hist0.index, pd.DatetimeIndex):
     hist0.index = pd.to_datetime(hist0.index)
 
@@ -54,15 +96,15 @@ closing_prices0 = hist0["Close"].round(2)
 
 # Check if the dataset is empty
 if len(closing_prices) == 0:
-    st.error("No data found for the selected time period. Please try again.")
+    st.error(f"No data found for {selected_ticker} for the selected time period. Please try again.")
     st.stop()  # Stop execution if the dataset is empty
 
 # Use the closing prices as the dataset
 data = closing_prices.tolist()
 data0 = closing_prices0.tolist()
 
-# Fetch the latest SPY closing price
-latest_spy_price = get_latest_spy_price()
+# Fetch the latest closing price
+latest_price = get_latest_price(selected_ticker)
 
 # Calculate the difference between the last two closing prices
 if len(data) >= 2:
@@ -166,16 +208,11 @@ else:
     bound_type = "upper"
     bound_price = last_model_value + std_dev_level * std_dev
 
-# Display the message indicating how many standard deviations SPY is approaching
-#st.markdown(
-    #f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY ({latest_spy_price:.2f}) is approaching {std_dev_level} standard deviations ({bound_type} bound, SPY price at {bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
-    #unsafe_allow_html=True
-#)
+# Display the message indicating how many standard deviations the selected ticker is approaching
 st.markdown(
-    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY ({latest_spy_price:.2f}) approaching {std_dev_level} Std_Dev ({bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">{selected_ticker} ({latest_price:.2f}) approaching {std_dev_level} Std_Dev ({bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
     unsafe_allow_html=True
 )
-
 
 # Plot the data and regression lines
 st.subheader("Plot")
@@ -188,9 +225,9 @@ prediction_days = int(prediction_period.split()[0])  # Extract the number of day
 future_X = np.arange(len(moving_avg), len(moving_avg) + prediction_days).reshape(-1, 1)  # Future time steps
 future_y_better = better_model.predict(future_X)  # Better model predictions
 
-# Display current SPY price and price difference above the plot
-st.write("### SPY Price Information")
-if latest_spy_price is not None and price_difference is not None:
+# Display current price and price difference above the plot
+st.write(f"### {selected_ticker} Price Information")
+if latest_price is not None and price_difference is not None:
     # Determine if the price increased or decreased
     if price_difference > 0:
         color = "green"
@@ -203,17 +240,20 @@ if latest_spy_price is not None and price_difference is not None:
         change_symbol = ""
     
     # Get yesterday's closing price
-    yesterday_close = latest_spy_price - price_difference
+    yesterday_close = latest_price - price_difference
+    
+    # Calculate the percentage change
+    percentage_change = (price_difference / yesterday_close) * 100
     
     # Display the combined message with color applied to the entire message
     st.markdown(
-        f'<span style="color: {color};">**SPY Current Price:** ${latest_spy_price:.2f}, {change_symbol}${abs(price_difference):.2f} from last close (${yesterday_close:.2f})</span>',
+        f'<span style="color: {color};">**{selected_ticker} Current Price:** ${latest_price:.2f}, {change_symbol}${abs(price_difference):.2f} ({percentage_change:.2f}%) from last close (${yesterday_close:.2f})</span>',
         unsafe_allow_html=True
     )
-elif latest_spy_price is not None:
-    st.write(f"**SPY Current Price:** ${latest_spy_price:.2f} (Price difference data not available)")
+elif latest_price is not None:
+    st.write(f"**{selected_ticker} Current Price:** ${latest_price:.2f} (Price difference data not available)")
 else:
-    st.write("**SPY Current Price:** Not available")
+    st.write(f"**{selected_ticker} Current Price:** Not available")
 
 # Add the comparison logic and display the trend message
 latest_closing_price = data[-1]  # Latest closing price
@@ -223,7 +263,7 @@ latest_ma20 = ma20[-1]  # Latest 20-day moving average
 latest_ma50 = ma50[-1]  # Latest 50-day moving average
 latest_ma100 = ma100[-1]  # Latest 50-day moving average
 
-# Calculate the absolute differences between SPY and moving averages
+# Calculate the absolute differences between the selected ticker and moving averages
 diff_moving_avg = abs(latest_closing_price - latest_moving_avg)
 diff_ma9 = abs(latest_closing_price - latest_ma9)
 diff_ma20 = abs(latest_closing_price - latest_ma20)
@@ -232,16 +272,16 @@ diff_ma100 = abs(latest_closing_price - latest_ma100)
 
 # Check for up_trend condition
 if latest_closing_price  > latest_ma9 and latest_ma9 > latest_ma20:
-    st.markdown('<p style="color: green; font-size: 20px; font-weight: bold;">SPY Up_trend</p>',
+    st.markdown(f'<p style="color: green; font-size: 20px; font-weight: bold;">{selected_ticker} Up_trend</p>',
         unsafe_allow_html=True)
 
 # Check for down_trend condition
 elif latest_closing_price <  latest_ma9 and latest_ma9 < latest_ma20:
-    st.markdown('<p style="color: red; font-size: 20px; font-weight: bold;">SPY Down_trend</p>',
+    st.markdown(f'<p style="color: red; font-size: 20px; font-weight: bold;">{selected_ticker} Down_trend</p>',
         unsafe_allow_html=True)
 
 else:
-    st.markdown('<p style="color: gray; font-size: 20px; font-weight: bold;">SPY trend unclear</p>',
+    st.markdown(f'<p style="color: gray; font-size: 20px; font-weight: bold;">{selected_ticker} trend unclear</p>',
         unsafe_allow_html=True)
 
 # Find the smallest difference
@@ -264,29 +304,29 @@ else:
     closest_ma = "100-day Moving Average"
     closest_ma_value = latest_ma100
 
-# Display the message indicating which moving average SPY is approaching, along with its value
+# Display the message indicating which moving average the selected ticker is approaching, along with its value
 st.markdown(
-    f'<p style="color: orange; font-size: 18px; font-weight: bold;">SPY is approaching {closest_ma} (Value: {closest_ma_value:.2f})</p>',
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">{selected_ticker} is approaching {closest_ma} (Value: {closest_ma_value:.2f})</p>',
     unsafe_allow_html=True
 )
 
-# Plot SPY closing prices
-ax.plot(np.arange(len(data) - 4), data[4:], color='black', label='SPY Closing Prices', alpha=0.5)
+# Plot closing prices
+ax.plot(np.arange(len(data) - 4), data[4:], color='black', label=f'{selected_ticker} Closing Prices', alpha=0.5)
 
 # plot ma9
-ax.plot(np.arange(len(data) - 4 ), ma9, color='red', label='SPY ma9', alpha=0.5)
+ax.plot(np.arange(len(data) - 4 ), ma9, color='red', label=f'{selected_ticker} ma9', alpha=0.5)
 
 # plot ma20
-ax.plot(np.arange(len(data) - 4), ma20, color='blue', label='SPY ma20', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma20, color='blue', label=f'{selected_ticker} ma20', alpha=0.5)
 
 # plot ma50
-ax.plot(np.arange(len(data) - 4), ma50, color='orange', label='SPY ma50', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma50, color='orange', label=f'{selected_ticker} ma50', alpha=0.5)
 
 # plot ma100
-ax.plot(np.arange(len(data) - 4), ma100, color='black', label='SPY ma100', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma100, color='black', label=f'{selected_ticker} ma100', alpha=0.5)
 
 # plot ma200
-ax.plot(np.arange(len(data) - 4), ma200, color='purple', label='SPY ma200', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma200, color='purple', label=f'{selected_ticker} ma200', alpha=0.5)
 
 # Plot 5-day moving averages
 ax.scatter(X, y, color='blue', label='5-Day Moving Averages')

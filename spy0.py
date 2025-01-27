@@ -24,11 +24,47 @@ if 'ticker' not in st.session_state:
 if st.sidebar.button(f"Switch to {'QQQ' if st.session_state.ticker == 'SPY' else 'SPY'}"):
     st.session_state.ticker = "QQQ" if st.session_state.ticker == "SPY" else "SPY"
 
+######################
+# Initialize session state for custom ticker if it doesn't exist
+if "custom_ticker" not in st.session_state:
+    st.session_state.custom_ticker = ""
+
+# Define a callback function to clear the custom ticker input
+def clear_custom_ticker():
+    st.session_state.custom_ticker = ""  # Clear the session state
+
+# Add a text input for custom ticker symbol
+custom_ticker = st.sidebar.text_input(
+    "Enter a custom ticker symbol (e.g., AAPL, TSLA):",
+    value=st.session_state.custom_ticker,
+    key="custom_ticker_input"
+)
+
+# Add a button to clear the custom ticker input
+if st.sidebar.button("Clear Ticker"):
+    clear_custom_ticker()  # Call the function to clear the ticker
+
+# Use the custom ticker if provided
+if custom_ticker.strip():  # If the user entered something
+    selected_ticker = custom_ticker.strip().upper()
+    # Clear the custom ticker after using it
+    st.session_state.custom_ticker = ""  # Clear the input
+else:
+    selected_ticker = st.session_state.ticker  # Use the toggled ticker
+
+# Display the selected ticker
+st.write(f"Selected Ticker: {selected_ticker}")
+
+#################
 # Fetch the latest closing price for the selected ticker
 def get_latest_price(ticker):
-    stock = yf.Ticker(ticker)
-    hist = stock.history(period="1d")  # Fetch the latest day's data
-    return hist["Close"].iloc[-1]
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1d")  # Fetch the latest day's data
+        return hist["Close"].iloc[-1]
+    except Exception as e:
+        st.error(f"Error fetching data for {ticker}: {e}")
+        return None
 
 # Initialize variables
 latest_price = None
@@ -43,9 +79,13 @@ time_period = st.sidebar.selectbox(
 )
 
 # Download historical data for the selected ticker
-stock = yf.Ticker(st.session_state.ticker)
-hist = stock.history(period=time_period)
-hist0 = stock.history(period="5y")
+try:
+    stock = yf.Ticker(selected_ticker)
+    hist = stock.history(period=time_period)
+    hist0 = stock.history(period="5y")
+except Exception as e:
+    st.error(f"Error fetching historical data for {selected_ticker}: {e}")
+    st.stop()
 
 # Ensure the index is a DatetimeIndex
 if not isinstance(hist.index, pd.DatetimeIndex):
@@ -60,7 +100,7 @@ closing_prices0 = hist0["Close"].round(2)
 
 # Check if the dataset is empty
 if len(closing_prices) == 0:
-    st.error("No data found for the selected time period. Please try again.")
+    st.error(f"No data found for {selected_ticker} for the selected time period. Please try again.")
     st.stop()  # Stop execution if the dataset is empty
 
 # Use the closing prices as the dataset
@@ -68,7 +108,7 @@ data = closing_prices.tolist()
 data0 = closing_prices0.tolist()
 
 # Fetch the latest closing price
-latest_price = get_latest_price(st.session_state.ticker)
+latest_price = get_latest_price(selected_ticker)
 
 # Calculate the difference between the last two closing prices
 if len(data) >= 2:
@@ -174,7 +214,7 @@ else:
 
 # Display the message indicating how many standard deviations the selected ticker is approaching
 st.markdown(
-    f'<p style="color: orange; font-size: 18px; font-weight: bold;">{st.session_state.ticker} ({latest_price:.2f}) approaching {std_dev_level} Std_Dev ({bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">{selected_ticker} ({latest_price:.2f}) approaching {std_dev_level} Std_Dev ({bound_type} bound: {bound_price:.2f}) based on {model_type} Regression (R² = {better_r_squared:.3f})</p>',
     unsafe_allow_html=True
 )
 
@@ -190,7 +230,7 @@ future_X = np.arange(len(moving_avg), len(moving_avg) + prediction_days).reshape
 future_y_better = better_model.predict(future_X)  # Better model predictions
 
 # Display current price and price difference above the plot
-st.write(f"### {st.session_state.ticker} Price Information")
+st.write(f"### {selected_ticker} Price Information")
 if latest_price is not None and price_difference is not None:
     # Determine if the price increased or decreased
     if price_difference > 0:
@@ -211,13 +251,13 @@ if latest_price is not None and price_difference is not None:
     
     # Display the combined message with color applied to the entire message
     st.markdown(
-        f'<span style="color: {color};">**{st.session_state.ticker} Current Price:** ${latest_price:.2f}, {change_symbol}${abs(price_difference):.2f} ({percentage_change:.2f}%) from last close (${yesterday_close:.2f})</span>',
+        f'<span style="color: {color};">**{selected_ticker} Current Price:** ${latest_price:.2f}, {change_symbol}${abs(price_difference):.2f} ({percentage_change:.2f}%) from last close (${yesterday_close:.2f})</span>',
         unsafe_allow_html=True
     )
 elif latest_price is not None:
-    st.write(f"**{st.session_state.ticker} Current Price:** ${latest_price:.2f} (Price difference data not available)")
+    st.write(f"**{selected_ticker} Current Price:** ${latest_price:.2f} (Price difference data not available)")
 else:
-    st.write(f"**{st.session_state.ticker} Current Price:** Not available")
+    st.write(f"**{selected_ticker} Current Price:** Not available")
 
 # Add the comparison logic and display the trend message
 latest_closing_price = data[-1]  # Latest closing price
@@ -236,16 +276,16 @@ diff_ma100 = abs(latest_closing_price - latest_ma100)
 
 # Check for up_trend condition
 if latest_closing_price  > latest_ma9 and latest_ma9 > latest_ma20:
-    st.markdown(f'<p style="color: green; font-size: 20px; font-weight: bold;">{st.session_state.ticker} Up_trend</p>',
+    st.markdown(f'<p style="color: green; font-size: 20px; font-weight: bold;">{selected_ticker} Up_trend</p>',
         unsafe_allow_html=True)
 
 # Check for down_trend condition
 elif latest_closing_price <  latest_ma9 and latest_ma9 < latest_ma20:
-    st.markdown(f'<p style="color: red; font-size: 20px; font-weight: bold;">{st.session_state.ticker} Down_trend</p>',
+    st.markdown(f'<p style="color: red; font-size: 20px; font-weight: bold;">{selected_ticker} Down_trend</p>',
         unsafe_allow_html=True)
 
 else:
-    st.markdown(f'<p style="color: gray; font-size: 20px; font-weight: bold;">{st.session_state.ticker} trend unclear</p>',
+    st.markdown(f'<p style="color: gray; font-size: 20px; font-weight: bold;">{selected_ticker} trend unclear</p>',
         unsafe_allow_html=True)
 
 # Find the smallest difference
@@ -270,27 +310,27 @@ else:
 
 # Display the message indicating which moving average the selected ticker is approaching, along with its value
 st.markdown(
-    f'<p style="color: orange; font-size: 18px; font-weight: bold;">{st.session_state.ticker} is approaching {closest_ma} (Value: {closest_ma_value:.2f})</p>',
+    f'<p style="color: orange; font-size: 18px; font-weight: bold;">{selected_ticker} is approaching {closest_ma} (Value: {closest_ma_value:.2f})</p>',
     unsafe_allow_html=True
 )
 
 # Plot closing prices
-ax.plot(np.arange(len(data) - 4), data[4:], color='black', label=f'{st.session_state.ticker} Closing Prices', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), data[4:], color='black', label=f'{selected_ticker} Closing Prices', alpha=0.5)
 
 # plot ma9
-ax.plot(np.arange(len(data) - 4 ), ma9, color='red', label=f'{st.session_state.ticker} ma9', alpha=0.5)
+ax.plot(np.arange(len(data) - 4 ), ma9, color='red', label=f'{selected_ticker} ma9', alpha=0.5)
 
 # plot ma20
-ax.plot(np.arange(len(data) - 4), ma20, color='blue', label=f'{st.session_state.ticker} ma20', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma20, color='blue', label=f'{selected_ticker} ma20', alpha=0.5)
 
 # plot ma50
-ax.plot(np.arange(len(data) - 4), ma50, color='orange', label=f'{st.session_state.ticker} ma50', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma50, color='orange', label=f'{selected_ticker} ma50', alpha=0.5)
 
 # plot ma100
-ax.plot(np.arange(len(data) - 4), ma100, color='black', label=f'{st.session_state.ticker} ma100', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma100, color='black', label=f'{selected_ticker} ma100', alpha=0.5)
 
 # plot ma200
-ax.plot(np.arange(len(data) - 4), ma200, color='purple', label=f'{st.session_state.ticker} ma200', alpha=0.5)
+ax.plot(np.arange(len(data) - 4), ma200, color='purple', label=f'{selected_ticker} ma200', alpha=0.5)
 
 # Plot 5-day moving averages
 ax.scatter(X, y, color='blue', label='5-Day Moving Averages')
