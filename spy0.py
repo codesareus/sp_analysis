@@ -41,8 +41,8 @@ custom_ticker = st.sidebar.text_input(
 )
 
 # Add a button to clear the custom ticker input
-if st.sidebar.button("Clear Ticker"):
-    clear_custom_ticker()  # Call the function to clear the ticker
+#if st.sidebar.button("Clear Ticker"):
+   # clear_custom_ticker()  # Call the function to clear the ticker
 
 # Use the custom ticker if provided
 if custom_ticker.strip():  # If the user entered something
