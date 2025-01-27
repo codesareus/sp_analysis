@@ -17,40 +17,47 @@ st.sidebar.header("Input Data")
 # Divider
 st.sidebar.divider()
 
-# Add a button to toggle between SPY and QQQ
-if 'ticker' not in st.session_state:
-    st.session_state.ticker = "SPY"
-
-if st.sidebar.button(f"Switch to {'QQQ' if st.session_state.ticker == 'SPY' else 'SPY'}"):
-    st.session_state.ticker = "QQQ" if st.session_state.ticker == "SPY" else "SPY"
-
 ######################
-# Initialize session state for custom ticker if it doesn't exist
+# Initialize session state variables
+if 'ticker' not in st.session_state:
+    st.session_state.ticker = "SPY"  # Default ticker
 if "custom_ticker" not in st.session_state:
     st.session_state.custom_ticker = ""
+if "clear_input" not in st.session_state:
+    st.session_state.clear_input = False
+
+# Add a button to toggle between SPY and QQQ
+if st.sidebar.button(f"Switch to {'QQQ' if st.session_state.ticker == 'SPY' else 'SPY'}"):
+    st.session_state.ticker = "QQQ" if st.session_state.ticker == "SPY" else "SPY"
+    st.session_state.custom_ticker = ""  # Clear custom ticker when toggling
+    st.session_state.clear_input = True  # Set the flag to clear the input
 
 # Define a callback function to clear the custom ticker input
 def clear_custom_ticker():
-    st.session_state.custom_ticker = ""  # Clear the session state
+    st.session_state.clear_input = True  # Set the flag to clear the input
 
 # Add a text input for custom ticker symbol
 custom_ticker = st.sidebar.text_input(
     "Enter a custom ticker symbol (e.g., AAPL, TSLA):",
-    value=st.session_state.custom_ticker,
+    value="" if st.session_state.clear_input else st.session_state.custom_ticker,
     key="custom_ticker_input"
 )
 
+# Reset the clear_input flag after using it
+if st.session_state.clear_input:
+    st.session_state.custom_ticker = ""  # Clear the session state
+    st.session_state.clear_input = False  # Reset the flag
+
 # Add a button to clear the custom ticker input
-#if st.sidebar.button("Clear Ticker"):
-   # clear_custom_ticker()  # Call the function to clear the ticker
+if st.sidebar.button("Clear Ticker"):
+    clear_custom_ticker()  # Call the function to set the clear flag
 
 # Use the custom ticker if provided
 if custom_ticker.strip():  # If the user entered something
     selected_ticker = custom_ticker.strip().upper()
-    # Clear the custom ticker after using it
-    st.session_state.custom_ticker = ""  # Clear the input
+    st.session_state.custom_ticker = custom_ticker  # Save the ticker to session state
 else:
-    selected_ticker = st.session_state.ticker  # Use the toggled ticker
+    selected_ticker = st.session_state.ticker  # Use the toggled ticker (SPY or QQQ)
 
 # Display the selected ticker
 st.write(f"Selected Ticker: {selected_ticker}")
