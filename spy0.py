@@ -217,7 +217,9 @@ def main():
         f'<p style="color: orange; font-size: 16px; font-weight: bold;">({time_period} period)</p>',
         unsafe_allow_html=True
     )
-
+    hist = stock.history(period=time_period)
+    st.write(f"last date in Data___{hist.index[-1].strftime("%Y-%m-%d")}___first date___{hist.index[0].strftime("%Y-%m-%d")}")
+    
     st.subheader("Plot")
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12), gridspec_kw={'height_ratios': [3, 1, 1]})
 
