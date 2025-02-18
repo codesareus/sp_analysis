@@ -213,16 +213,29 @@ def main():
         unsafe_allow_html=True
     )
 
+    if price_difference >= 0:
+        color2="green"
+    else:
+        color2="red"
+
     st.markdown(
-        f'<p style="color: orange; font-size: 16px; font-weight: bold;">({time_period} period)</p>',
+        f'<p style="color: {color2}; font-size: 16px; font-weight: bold;">({time_period} period)__change___{price_difference:.2f}</p>',
         unsafe_allow_html=True
     )
     hist = stock.history(period=time_period)
     st.write(f"last date in Data___{hist.index[-1].strftime("%Y-%m-%d")}___first date___{hist.index[0].strftime("%Y-%m-%d")}")
     
     st.subheader("Plot")
+    
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12), gridspec_kw={'height_ratios': [3, 1, 1]})
 
+    rsi = calculate_rsi(hist)
+    rsi2 = calculate_rsi(hist, window=25)
+    
+    ax1.set_xlim(0, len(data) - 4 +3)
+    ax2.set_xlim(0, len(rsi) - 4 +3)
+    ax3.set_xlim(0, len(hist) - 4 + 3)
+    
     # Plot 1: Price and Moving Averages
     ax1.plot(np.arange(len(data) - 4), data[4:], color='black', label=f'{selected_ticker} Closing Prices', alpha=0.5)
     ax1.plot(np.arange(len(data) - 4 ), ma9, color='red', label=f'{selected_ticker} ma9', alpha=0.5)
@@ -261,10 +274,9 @@ def main():
     ax1.grid()
 
     # Plot 2: RSI
-    rsi = calculate_rsi(hist)
-    rsi2 = calculate_rsi(hist, window=25)
-    ax2.plot(np.arange(len(rsi)), rsi, color='blue', label='RSI')
-    ax2.plot(np.arange(len(rsi)), rsi2, color="orange", linestyle="--", label="RSI (25)")
+
+    ax2.plot(np.arange(len(rsi)-4), rsi[4:], color='blue', label='RSI')
+    ax2.plot(np.arange(len(rsi)-4), rsi2[4:], color="orange", linestyle="--", label="RSI (25)")
     ax2.axhline(70, color='red', linestyle='--', label='Overbought (70)')
     ax2.axhline(30, color='green', linestyle='--', label='Oversold (30)')
     ax2.axhline(50, color='gray', linestyle='--')  # Gray line at 50
@@ -274,8 +286,8 @@ def main():
 
     # Plot 3: MACD
     hist = calculate_macd(hist)
-    ax3.plot(np.arange(len(hist)), hist['MACD'], color='blue', label='MACD')
-    ax3.plot(np.arange(len(hist)), hist['Signal_Line'], color='orange', linestyle="--", label='Signal Line')
+    ax3.plot(np.arange(len(hist)-4), hist['MACD'][4:], color='blue', label='MACD')
+    ax3.plot(np.arange(len(hist)-4), hist['Signal_Line'][4:], color='orange', linestyle="--", label='Signal Line')
     ax3.axhline(0, color='gray', linestyle='-')  # Gray line at 50
     ax3.set_ylabel("MACD")
     ax3.set_xlabel("Time Step")
@@ -284,6 +296,8 @@ def main():
 
     plt.tight_layout()
     st.pyplot(fig)
+
+    
 
 if __name__ == "__main__":
     main()
